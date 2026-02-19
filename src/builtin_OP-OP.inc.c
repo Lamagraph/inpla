@@ -365,7 +365,126 @@
 	  }
 	  
 	  break; // end ID_TUPLE2
+
+
+  	case ID_TUPLE6:
+	  if (BASIC(a2)->id == ID_TUPLE6) {
+	    // (x1,x2,x3) ~ (y1,y2,y3) --> x1~y1, x2~y2, x3~y3
+	    COUNTUP_INTERACTION(vm);
+	    
+	    PUSH(vm, AGENT(a1)->port[5], AGENT(a2)->port[5]);
+	    PUSH(vm, AGENT(a1)->port[4], AGENT(a2)->port[4]);
+	    PUSH(vm, AGENT(a1)->port[3], AGENT(a2)->port[3]);
+	    PUSH(vm, AGENT(a1)->port[2], AGENT(a2)->port[2]);
+	    PUSH(vm, AGENT(a1)->port[1], AGENT(a2)->port[1]);
+	    
+	    //	      free_Agent(a1);
+	    //	      free_Agent(a2);
+	    free_Agent2(a1, a2);	      
+	    a1 = AGENT(a1)->port[0];
+	    a2 = AGENT(a2)->port[0];
+	    goto loop;
+	  }
 	  
+	  break; // end ID_TUPLE2
+
+
+	case ID_TUPLE7:
+	  if (BASIC(a2)->id == ID_TUPLE7) {
+	    // (x1,x2,x3) ~ (y1,y2,y3) --> x1~y1, x2~y2, x3~y3
+	    COUNTUP_INTERACTION(vm);
+	    
+	    PUSH(vm, AGENT(a1)->port[6], AGENT(a2)->port[6]);
+	    PUSH(vm, AGENT(a1)->port[5], AGENT(a2)->port[5]);
+	    PUSH(vm, AGENT(a1)->port[4], AGENT(a2)->port[4]);
+	    PUSH(vm, AGENT(a1)->port[3], AGENT(a2)->port[3]);
+	    PUSH(vm, AGENT(a1)->port[2], AGENT(a2)->port[2]);
+	    PUSH(vm, AGENT(a1)->port[1], AGENT(a2)->port[1]);
+	    
+	    //	      free_Agent(a1);
+	    //	      free_Agent(a2);
+	    free_Agent2(a1, a2);	      
+	    a1 = AGENT(a1)->port[0];
+	    a2 = AGENT(a2)->port[0];
+	    goto loop;
+	  }
+	  
+	  break; // end ID_TUPLE2
+
+
+	case ID_TUPLE8:
+	  if (BASIC(a2)->id == ID_TUPLE8) {
+	    // (x1,x2,x3) ~ (y1,y2,y3) --> x1~y1, x2~y2, x3~y3
+	    COUNTUP_INTERACTION(vm);
+	    
+	    PUSH(vm, AGENT(a1)->port[7], AGENT(a2)->port[7]);
+	    PUSH(vm, AGENT(a1)->port[6], AGENT(a2)->port[6]);
+	    PUSH(vm, AGENT(a1)->port[5], AGENT(a2)->port[5]);
+	    PUSH(vm, AGENT(a1)->port[4], AGENT(a2)->port[4]);
+	    PUSH(vm, AGENT(a1)->port[3], AGENT(a2)->port[3]);
+	    PUSH(vm, AGENT(a1)->port[2], AGENT(a2)->port[2]);
+	    PUSH(vm, AGENT(a1)->port[1], AGENT(a2)->port[1]);
+	    
+	    //	      free_Agent(a1);
+	    //	      free_Agent(a2);
+	    free_Agent2(a1, a2);	      
+	    a1 = AGENT(a1)->port[0];
+	    a2 = AGENT(a2)->port[0];
+	    goto loop;
+	  }
+	  
+	  break; // end ID_TUPLE2
+
+
+	case ID_TUPLE9:
+	  if (BASIC(a2)->id == ID_TUPLE9) {
+	    // (x1,x2,x3) ~ (y1,y2,y3) --> x1~y1, x2~y2, x3~y3
+	    COUNTUP_INTERACTION(vm);
+	    
+	    PUSH(vm, AGENT(a1)->port[8], AGENT(a2)->port[8]);
+	    PUSH(vm, AGENT(a1)->port[7], AGENT(a2)->port[7]);
+	    PUSH(vm, AGENT(a1)->port[6], AGENT(a2)->port[6]);
+	    PUSH(vm, AGENT(a1)->port[5], AGENT(a2)->port[5]);
+	    PUSH(vm, AGENT(a1)->port[4], AGENT(a2)->port[4]);
+	    PUSH(vm, AGENT(a1)->port[3], AGENT(a2)->port[3]);
+	    PUSH(vm, AGENT(a1)->port[2], AGENT(a2)->port[2]);
+	    PUSH(vm, AGENT(a1)->port[1], AGENT(a2)->port[1]);
+	    
+	    //	      free_Agent(a1);
+	    //	      free_Agent(a2);
+	    free_Agent2(a1, a2);	      
+	    a1 = AGENT(a1)->port[0];
+	    a2 = AGENT(a2)->port[0];
+	    goto loop;
+	  }
+	  
+	  break; // end ID_TUPLE2
+
+
+	case ID_TUPLE10:
+	  if (BASIC(a2)->id == ID_TUPLE10) {
+	    // (x1,x2,x3) ~ (y1,y2,y3) --> x1~y1, x2~y2, x3~y3
+	    COUNTUP_INTERACTION(vm);
+	    
+	    PUSH(vm, AGENT(a1)->port[9], AGENT(a2)->port[9]);
+	    PUSH(vm, AGENT(a1)->port[8], AGENT(a2)->port[8]);
+	    PUSH(vm, AGENT(a1)->port[7], AGENT(a2)->port[7]);
+	    PUSH(vm, AGENT(a1)->port[6], AGENT(a2)->port[6]);
+	    PUSH(vm, AGENT(a1)->port[5], AGENT(a2)->port[5]);
+	    PUSH(vm, AGENT(a1)->port[4], AGENT(a2)->port[4]);
+	    PUSH(vm, AGENT(a1)->port[3], AGENT(a2)->port[3]);
+	    PUSH(vm, AGENT(a1)->port[2], AGENT(a2)->port[2]);
+	    PUSH(vm, AGENT(a1)->port[1], AGENT(a2)->port[1]);
+	    
+	    //	      free_Agent(a1);
+	    //	      free_Agent(a2);
+	    free_Agent2(a1, a2);	      
+	    a1 = AGENT(a1)->port[0];
+	    a2 = AGENT(a2)->port[0];
+	    goto loop;
+	  }
+	  
+	  break; // end ID_TUPLE2
 	  
 	case ID_NIL:
 	  if (BASIC(a2)->id == ID_NIL) {

@@ -1036,7 +1036,7 @@ void puts_eqlist(EQList *at) {
 // ------------------------------------------------------------
 //  VIRTUAL MACHINE 
 // ------------------------------------------------------------
-#define VM_REG_SIZE 64
+#define VM_REG_SIZE 256
 
 // reg0 is used to store comparison results
 // so, others have to be used from reg1
@@ -2397,7 +2397,7 @@ typedef enum {
 
 // NBIND 数は meta数(MAX_PORT*2) + 一つの rule（や eqlist） における
 // 最大name出現数(100)
-#define MAX_NBIND MAX_PORT*2+100
+#define MAX_NBIND MAX_PORT*2+300
 typedef struct {
   char *name;
   int reg;
@@ -3408,7 +3408,7 @@ int CmEnv_Optimise_VMCode_CopyPropagation(int target_imcode_addr) {
 }
 					   
 
-#define MAX_LABEL 50
+#define MAX_LABEL 100
 #define MAX_BACKPATCH MAX_LABEL*2
 int CmEnv_generate_VMCode(void **code, int max_size) {
   int addr = 0;
@@ -5864,10 +5864,11 @@ int check_ast_arity(Ast *ast) {
 
   } else if (ast->id == AST_TUPLE) {
     // We support upto 5-tuples.
-    if ((ast->intval <= MAX_PORT) && (ast->intval <= 5)) {
+    // LAMAGRAPH: 10
+    if ((ast->intval <= MAX_PORT) && (ast->intval <= 10)) {
       return 1;
     } else {
-      if (MAX_PORT <= 5) {
+      if (MAX_PORT <= 10) {
 	printf("%d:Error: A tuple has too many arguments. It should be MAX_PORT(=%d) or less.\n", yylineno, MAX_PORT);
       } else {
 	printf("%d:Error: A tuple has too many arguments. 6 more tubles are not supported.\n", yylineno);
