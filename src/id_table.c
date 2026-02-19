@@ -34,6 +34,11 @@ void IdTable_init() {
   IdTable[ID_TUPLE3].aux.arity = 3;
   IdTable[ID_TUPLE4].aux.arity = 4;
   IdTable[ID_TUPLE5].aux.arity = 5;
+  IdTable[ID_TUPLE6].aux.arity = 6;
+  IdTable[ID_TUPLE7].aux.arity = 7;
+  IdTable[ID_TUPLE8].aux.arity = 8;
+  IdTable[ID_TUPLE9].aux.arity = 9;
+  IdTable[ID_TUPLE10].aux.arity = 10;
   IdTable[ID_NIL].aux.arity = 0;
   IdTable[ID_CONS].aux.arity = 2;
   IdTable[ID_INTAGENT].aux.arity = 1;
@@ -67,6 +72,11 @@ void IdTable_init() {
   IdTable[ID_TUPLE3].name = "Tuple3";
   IdTable[ID_TUPLE4].name = "Tuple4";
   IdTable[ID_TUPLE5].name = "Tuple5";
+  IdTable[ID_TUPLE6].name = "Tuple6";
+  IdTable[ID_TUPLE7].name = "Tuple7";
+  IdTable[ID_TUPLE8].name = "Tuple8";
+  IdTable[ID_TUPLE9].name = "Tuple9";
+  IdTable[ID_TUPLE10].name = "Tuple10";
   IdTable[ID_NIL].name = "[]";
   IdTable[ID_CONS].name = "Cons";
   IdTable[ID_INTAGENT].name = "Int";
