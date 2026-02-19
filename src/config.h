@@ -8,7 +8,7 @@
 // MAX_PORT defines a number of ports of agents.
 // Default is 5 and should be 2 or more.
 
-#define MAX_PORT 5
+#define MAX_PORT 10
 
 
 // ------------------------------------------------
@@ -26,16 +26,16 @@
 // ------------------------------------------------
 // MAX_VMCODE_SEQUENCE defines the maximum number of VM codes
 // for each rule. This value limits the code size stored in the RuleTable.
-// Default: 1024.
-#define MAX_VMCODE_SEQUENCE 1024
+// Default is 1024.
+#define MAX_VMCODE_SEQUENCE 1024 * 512
 
 // MAX_EXEC_VMCODE_SEQUENCE defines the maximum number of VM codes
 // for the top-level execution.
 // This buffer for this is dynamically allocated
 // at the start of the top-level execution
 // and de-allocated immediately after the compilation and execution finish.
-// Default: 1000000.
-#define MAX_EXEC_VMCODE_SEQUENCE 1000000
+// Default is 1000000.
+#define MAX_EXEC_VMCODE_SEQUENCE 1024 * 1024 * 512
 
 
 // ------------------------------------------------
@@ -46,7 +46,7 @@
 // Increase this value if the compiler runs out of heap space.
 // Default: 1024.
 //#define MAX_IMCODE_SEQUENCE 1024
-#define MAX_IMCODE_SEQUENCE 1024
+#define MAX_IMCODE_SEQUENCE 2048
 
 
 
