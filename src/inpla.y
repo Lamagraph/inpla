@@ -1860,7 +1860,7 @@ void puts_eqlist(EQList *at) {
 // ------------------------------------------------------------
 //  VIRTUAL MACHINE 
 // ------------------------------------------------------------
-#define VM_REG_SIZE 64
+#define VM_REG_SIZE 256
 
 // reg0 is used to store comparison results
 // so, others have to be used from reg1
@@ -2515,7 +2515,7 @@ void CodeAddr_init(void) {
 }
 
 //http://www.hpcs.cs.tsukuba.ac.jp/~msato/lecture-note/comp-lecture/note10.html
-#define MAX_IMCODE_SEQUENCE 1024
+#define MAX_IMCODE_SEQUENCE 2048
 struct IMCode_tag {
   int opcode;
   long operand1, operand2, operand3, operand4, operand5, operand6, operand7;
@@ -2836,7 +2836,7 @@ void IMCode_puts(int n) {
 
 
 
-#define MAX_VMCODE_SEQUENCE 1024  
+#define MAX_VMCODE_SEQUENCE 2048
 void VMCode_puts(void **code, int n) {
   int line = 0;
   
@@ -3197,7 +3197,7 @@ typedef enum {
 
 // NBIND 数は meta数(MAX_PORT*2) + 一つの rule（や eqlist） における
 // 最大name出現数(100)
-#define MAX_NBIND MAX_PORT*2+100
+#define MAX_NBIND MAX_PORT*2+300
 typedef struct {
   char *name;
   int reg;
@@ -4208,7 +4208,7 @@ int CmEnv_Optimise_VMCode_CopyPropagation(int target_imcode_addr) {
 }
 					   
 
-#define MAX_LABEL 50
+#define MAX_LABEL 100
 #define MAX_BACKPATCH MAX_LABEL*2
 int CmEnv_generate_VMCode(void **code) {
   int addr = 0;
