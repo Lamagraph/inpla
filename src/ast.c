@@ -100,7 +100,7 @@ void recordVal(SymbolTable *table, char *name, long val) {
 
 static Ast *AstHeap;
 static int NextPtr_AstHeap;
-#define MAX_AST_HEAP 32000
+#define MAX_AST_HEAP 100000
 
 void ast_heapInit(void) {
   

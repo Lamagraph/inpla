@@ -1860,7 +1860,7 @@ void puts_eqlist(EQList *at) {
 // ------------------------------------------------------------
 //  VIRTUAL MACHINE 
 // ------------------------------------------------------------
-#define VM_REG_SIZE 256
+#define VM_REG_SIZE 8192
 
 // reg0 is used to store comparison results
 // so, others have to be used from reg1
@@ -2515,7 +2515,7 @@ void CodeAddr_init(void) {
 }
 
 //http://www.hpcs.cs.tsukuba.ac.jp/~msato/lecture-note/comp-lecture/note10.html
-#define MAX_IMCODE_SEQUENCE 2048
+#define MAX_IMCODE_SEQUENCE 65536
 struct IMCode_tag {
   int opcode;
   long operand1, operand2, operand3, operand4, operand5, operand6, operand7;
@@ -2836,7 +2836,7 @@ void IMCode_puts(int n) {
 
 
 
-#define MAX_VMCODE_SEQUENCE 2048
+#define MAX_VMCODE_SEQUENCE 65536
 void VMCode_puts(void **code, int n) {
   int line = 0;
   
@@ -6730,7 +6730,7 @@ int Compile_rule_mainbody_on_ast(Ast *mainbody) {
 typedef struct RuleList {
   int sym;
   int available;
-  void* code[MAX_VMCODE_SEQUENCE];
+  void** code;
   struct RuleList *next;
 } RuleList;
 
@@ -6738,6 +6738,11 @@ RuleList *RuleList_new(void) {
   RuleList *alist;
   alist = malloc(sizeof(RuleList));
   if (alist == NULL) {
+    printf("Malloc error\n");
+    exit(-1);
+  }
+  alist->code = malloc(MAX_VMCODE_SEQUENCE * sizeof(void*));
+  if (alist->code == NULL) {
     printf("Malloc error\n");
     exit(-1);
   }
@@ -7118,7 +7123,7 @@ int make_rule_oneway(Ast *ast) {
   int idL, idR;
   Ast *ruleAgent_L, *ruleAgent_R, *rule_mainbody;
 
-  void* code[MAX_VMCODE_SEQUENCE];
+  void** code = malloc(MAX_VMCODE_SEQUENCE * sizeof(void*));
   int gencode_num=0;
 
 
@@ -10111,8 +10116,8 @@ int exec(Ast *at) {
   // Ast at: (AST_BODY stmlist aplist)
 
   unsigned long long t, time;    
-  void* code[MAX_VMCODE_SEQUENCE];
-  
+  void** code = malloc(MAX_VMCODE_SEQUENCE * sizeof(void*));
+
   start_timer(&t);
 
   CmEnv_clear_all();
@@ -10432,7 +10437,7 @@ int exec(Ast *at) {
   
   unsigned long long t, time;
 
-  void* code[MAX_VMCODE_SEQUENCE];  
+  void** code = malloc(MAX_VMCODE_SEQUENCE * sizeof(void*));
   int eqsnum = 0;
 
   
