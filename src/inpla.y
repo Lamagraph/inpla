@@ -1860,7 +1860,7 @@ void puts_eqlist(EQList *at) {
 // ------------------------------------------------------------
 //  VIRTUAL MACHINE 
 // ------------------------------------------------------------
-#define VM_REG_SIZE 65536
+#define VM_REG_SIZE 1024 * 1024 * 8
 
 // reg0 is used to store comparison results
 // so, others have to be used from reg1
@@ -2515,15 +2515,19 @@ void CodeAddr_init(void) {
 }
 
 //http://www.hpcs.cs.tsukuba.ac.jp/~msato/lecture-note/comp-lecture/note10.html
-#define MAX_IMCODE_SEQUENCE 1048576
+#define MAX_IMCODE_SEQUENCE 1024 * 1024 * 256
 struct IMCode_tag {
   int opcode;
   long operand1, operand2, operand3, operand4, operand5, operand6, operand7;
-} IMCode[MAX_IMCODE_SEQUENCE];
+};
+
+struct IMCode_tag* IMCode;
+
 
 int IMCode_n;
 
 void IMCode_init(void) {
+  IMCode = malloc(MAX_IMCODE_SEQUENCE * sizeof(struct IMCode_tag));
   IMCode_n = 0;
 }
 
@@ -2836,7 +2840,7 @@ void IMCode_puts(int n) {
 
 
 
-#define MAX_VMCODE_SEQUENCE 1048576
+#define MAX_VMCODE_SEQUENCE 1024 * 1024 * 128
 void VMCode_puts(void **code, int n) {
   int line = 0;
   

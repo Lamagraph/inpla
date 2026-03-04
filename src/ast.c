@@ -8,7 +8,7 @@
 #include <string.h>
 #include "ast.h"
 
-#define MAX_SYMBOLS 1024
+#define MAX_SYMBOLS 1024 * 1024
 typedef struct {
   char* sym[MAX_SYMBOLS];
   long val[MAX_SYMBOLS];
@@ -100,7 +100,7 @@ void recordVal(SymbolTable *table, char *name, long val) {
 
 static Ast *AstHeap;
 static int NextPtr_AstHeap;
-#define MAX_AST_HEAP 10000000
+#define MAX_AST_HEAP 1024 * 1024 * 512
 
 void ast_heapInit(void) {
   
