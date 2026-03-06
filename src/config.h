@@ -77,7 +77,7 @@
 //   - Some combinations are rewritten.
 //     For instance, `SUBI src $1 dest' becomes `DEC src dest'.
 //
-#define OPTIMISE_IMCODE    
+// #define OPTIMISE_IMCODE    
   
 
 #ifdef OPTIMISE_IMCODE
