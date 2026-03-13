@@ -7720,33 +7720,38 @@ void PUSH(VirtualMachine * restrict vm, VALUE a1, VALUE a2) {
 
 #endif  
 
+bool isEmptyLocalName(VALUE v) {
+    return !IS_FIXNUM(v) && IS_LOCAL_NAMEID(BASIC(v)->id) && NAME(v)->port == (VALUE)NULL;
+}
 
 #ifndef THREAD
-#define MYPUSH(vm, a1, a2)				                \
-  if ((!IS_FIXNUM(a1)) && (IS_NAMEID(BASIC(a1)->id)) &&			\
-      (NAME(a1)->port == (VALUE)NULL)) {				\
-    NAME(a1)->port = a2;						\
-  } else if ((!IS_FIXNUM(a2)) && (IS_LOCAL_NAMEID(BASIC(a2)->id)) &&	\
-	     (NAME(a2)->port == (VALUE)NULL)) {				\
-    NAME(a2)->port = a1;						\
-  } else {								\
-    VM_EQStack_Push(vm, a1,a2);						\
-  }
+
+void MYPUSH(VirtualMachine * restrict vm, VALUE a1, VALUE a2) {
+    if (isEmptyName(a1)) {
+        NAME(a1)->port = a2;
+    } else if (isEmptyLocalName(a2)) {
+        NAME(a2)->port = a1;
+    } else {
+        VM_EQStack_Push(vm, a1, a2);
+    }
+}
+
 #else
-#define MYPUSH(vm, a1, a2)						\
-  if ((!IS_FIXNUM(a1)) && (IS_NAMEID(BASIC(a1)->id)) &&			\
-      (NAME(a1)->port == (VALUE)NULL)) {				\
-    if (!(__sync_bool_compare_and_swap(&(NAME(a1)->port), NULL, a2))) { \
-      VM_EQStack_Push(vm, a1,a2);					\
-    }									\
-  } else if ((!IS_FIXNUM(a2)) && (IS_NAMEID(BASIC(a2)->id)) &&		\
-	     (NAME(a2)->port == (VALUE)NULL)) {				\
-    if (!(__sync_bool_compare_and_swap(&(NAME(a2)->port), NULL, a1))) { \
-      VM_EQStack_Push(vm, a1,a2);					\
-    }									\
-  } else {								\
-    VM_EQStack_Push(vm, a1,a2);						\
-  }
+
+void MYPUSH(VirtualMachine * restrict vm, VALUE a1, VALUE a2) {
+    if (isEmptyName(a1)) {
+        if (!(__sync_bool_compare_and_swap(&(NAME(a1)->port), NULL, a2))) {
+            VM_EQStack_Push(vm, a1, a2);
+        }
+    } else if (isEmptyName(a2)) {
+        if (!(__sync_bool_compare_and_swap(&(NAME(a2)->port), NULL, a1))) {
+            VM_EQStack_Push(vm, a1, a2);
+        }
+    } else {
+        VM_EQStack_Push(vm, a1, a2);
+    }
+}
+
 #endif  
 
 
