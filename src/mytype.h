@@ -2,9 +2,12 @@
 #define _TYPE_
 
 #include "config.h"
+#include <stdint.h>
 
-typedef unsigned int IDTYPE;
-typedef unsigned long VALUE;
+typedef uint32_t IDTYPE;
+
+// will be used as an address variable
+typedef uint64_t VALUE;
 
 
 typedef struct {
@@ -52,7 +55,7 @@ typedef struct EQList_tag {
 
 
 
-#define FIXNUM_FLAG 0x01
+#define FIXNUM_FLAG 0b1
 #define INT2FIX(i) ((VALUE)(((long)(i) << 1) | FIXNUM_FLAG))
 #define FIX2INT(i) ((long)(i) >> 1)
 #define IS_FIXNUM(i) ((VALUE)(i) & FIXNUM_FLAG)
