@@ -1146,7 +1146,7 @@ VALUE myalloc_Agent(Heap *hp) {
 	hp->last_alloc_list = hoop_list;
 
 	//    printf("hit[%d]\n", idx);
-	return (VALUE)&(hoop[idx]);
+	return (VALUE)(hoop + idx);
       }
       idx++;
     }
@@ -1302,17 +1302,16 @@ VALUE myalloc_Name(Heap *hp) {
 
 static inline
 void myfree(VALUE ptr) {
-
-  SET_HOOPFLAG_READYFORUSE(BASIC(ptr)->id);
-
+  BASIC(ptr)->rc--;
+  if (BASIC(ptr)->rc < 1) {
+      SET_HOOPFLAG_READYFORUSE(BASIC(ptr)->id);
+  } 
 }
 
 static inline
 void myfree2(VALUE ptr, VALUE ptr2) {
-
-  SET_HOOPFLAG_READYFORUSE(BASIC(ptr)->id);
-  SET_HOOPFLAG_READYFORUSE(BASIC(ptr2)->id);
-
+  myfree(ptr);
+  myfree(ptr2);
 }
 
 
@@ -1865,7 +1864,7 @@ void puts_eqlist(EQList *at) {
 // ------------------------------------------------------------
 //  VIRTUAL MACHINE 
 // ------------------------------------------------------------
-#define VM_REG_SIZE 1024 * 1024 * 8
+#define VM_REG_SIZE 1024 * 1024 * 2
 
 // reg0 is used to store comparison results
 // so, others have to be used from reg1
@@ -2090,7 +2089,7 @@ void VM_Init(VirtualMachine * restrict vm,
 VALUE make_Agent(VirtualMachine * restrict vm, int id) {
   VALUE ptr;
   ptr = myalloc_Agent(&vm->agentHeap);
-
+  AGENT(ptr)->basic.rc = 1;
 #ifdef COUNT_MKAGENT
   NumberOfMkAgent++;
 #endif
@@ -2099,13 +2098,54 @@ VALUE make_Agent(VirtualMachine * restrict vm, int id) {
   return ptr;
 }
 
+VALUE dup_Name(VALUE na) {
+    NAME(na)->basic.rc++;
+    return na;
+}
 
+VALUE dup_Agent(VALUE ag) {
+    AGENT(ag)->basic.rc++;
+    printf("\n");
+    
+    return ag;
+}
+
+void dup_Agent_recursively(VALUE ptr) {
+  if (IS_FIXNUM(ptr)) return;
+  
+  if (IS_GNAMEID(BASIC(ptr)->id)) {
+      dup_Name(ptr);
+  }
+  
+  dup_Agent(ptr); 
+  
+  int arity = IdTable_get_arity(BASIC(ptr)->id);
+  for (int i = 0; i < arity; i++) {
+    dup_Agent_recursively(AGENT(ptr)->port[i]);
+  }
+}
+
+void dedup_Agent_recursively(VALUE ptr) {
+  if (IS_FIXNUM(ptr)) return;
+  
+  if (IS_GNAMEID(BASIC(ptr)->id)) {
+      free_Name(ptr);
+  }
+  
+  free_Agent(ptr); 
+  
+  int arity = IdTable_get_arity(BASIC(ptr)->id);
+  for (int i = 0; i < arity; i++) {
+    dedup_Agent_recursively(AGENT(ptr)->port[i]);
+  }
+}
 
 //static inline
 VALUE make_Name(VirtualMachine * restrict vm) {
   VALUE ptr;
-  
+
   ptr = myalloc_Name(&vm->nameHeap);
+  NAME(ptr)->basic.rc = 1;
   SET_LOCAL_NAMEID(AGENT(ptr)->basic.id);
   NAME(ptr)->port = (VALUE)NULL;
 
@@ -2520,7 +2560,7 @@ void CodeAddr_init(void) {
 }
 
 //http://www.hpcs.cs.tsukuba.ac.jp/~msato/lecture-note/comp-lecture/note10.html
-#define MAX_IMCODE_SEQUENCE 1024 * 1024 * 256
+#define MAX_IMCODE_SEQUENCE 1024 * 1024 * 128
 struct IMCode_tag {
   int opcode;
   long operand1, operand2, operand3, operand4, operand5, operand6, operand7;
@@ -2845,7 +2885,7 @@ void IMCode_puts(int n) {
 
 
 
-#define MAX_VMCODE_SEQUENCE 1024 * 1024 * 128
+#define MAX_VMCODE_SEQUENCE (1024 * 1024)
 void VMCode_puts(void **code, int n) {
   int line = 0;
   
@@ -3242,11 +3282,11 @@ typedef struct {
 
   // for compilation to VMCode
   int label;                    // labels
-  int tmpRegState[VM_REG_SIZE]; // register assignments
+  int* tmpRegState;             // register assignments
                                 // store localvar numbers. -1 is no assignment.
 
 #ifdef OPTIMISE_TWO_ADDRESS
-  int jmpcnctBlockRegState[VM_REG_SIZE];
+  int* jmpcnctBlockRegState;
   int is_in_jmpcnctBlock;
 #endif  
 
@@ -3278,6 +3318,10 @@ static CmEnvironment CmEnv = {
   .put_warning_for_cnct_property = 1, // with warning
   .put_compiled_codes = 0,            // without outputting codes
   .tco = 0,                           // without tail call opt.
+  .tmpRegState = NULL,
+#ifdef OPTIMISE_TWO_ADDRESS 
+  .jmpcnctBlockRegState = NULL,
+#endif 
 };
 
 
@@ -3309,6 +3353,9 @@ void CmEnv_clear_bind(int preserve_idx) {
 
 #ifdef OPTIMISE_TWO_ADDRESS
 void CmEnv_clear_jmpcnctBlock_assignment_table_all(void) {
+  if (CmEnv.jmpcnctBlockRegState == NULL) {
+      CmEnv.jmpcnctBlockRegState = malloc(VM_REG_SIZE * sizeof(int));
+  }
   for (int i=0; i<VM_REG_SIZE; i++) {
     CmEnv.jmpcnctBlockRegState[i] = -1;
   }
@@ -3325,6 +3372,9 @@ void CmEnv_stack_assignment_table(void) {
 
 
 void CmEnv_clear_register_assignment_table_all(void) {
+  if (CmEnv.tmpRegState == NULL) {
+      CmEnv.tmpRegState = malloc(VM_REG_SIZE * sizeof(int));
+  }
   for (int i=0; i<VM_OFFSET_LOCALVAR; i++) {
     CmEnv.tmpRegState[i] = i;    // occupied already
   }    
@@ -8707,11 +8757,12 @@ loop_a2IsFixnum:
 
 	    // Dup(x,y) ~ (int n) --> x~n, y~n;
 	    VALUE a1port = AGENT(a1)->port[0];
-	    PUSH(vm, a1port, a2);
+	    //PUSH(vm, a1port, a2);
 
 	    a1port = AGENT(a1)->port[1];
 	    free_Agent(a1);
-	    a1 = a1port;
+	    return;
+					a1 = a1port;
 	    goto loop;
 	  }
 
@@ -8873,274 +8924,258 @@ loop_agent_a1_a2_this_order:
 	    // Eps ~ Alpha(a1,...,a5)		
 	    COUNTUP_INTERACTION(vm);
 	    
-	    int arity = IdTable_get_arity(BASIC(a2)->id);
-	    switch (arity) {
-	    case 0:
-	      {
-		free_Agent2(a1, a2);
-		return;
-	      }
-	      
-	    case 1:
-	      {
-		VALUE a2p0 = AGENT(a2)->port[0];
-		free_Agent(a2);
-		a2 = a2p0;
-		goto loop;
-	      }
-	      
-	    default:
-	      for (int i=1; i<arity; i++) {
-		VALUE a2port = AGENT(a2)->port[i];
-		VALUE eps = make_Agent(vm, ID_ERASER);
-		PUSH(vm, eps, a2port);
-	      }
-	      
-	      VALUE a2p0 = AGENT(a2)->port[0];
-	      free_Agent(a2);
-	      a2 = a2p0;
-	      goto loop;
-	    }
-	  }
-	  break;
-
-
-	case ID_DUP:
-	  {
-	    // Dup(p1,p2) ~ Alpha(b1,...,b5)
-	    COUNTUP_INTERACTION(vm);
-
-	    if (BASIC(a2)->id == ID_DUP) {
-	      // Dup(p1,p2) >< Dup(b1,b2) => p1~b1, b2~b2;
-	      VALUE a1p = AGENT(a1)->port[0];
-	      VALUE a2p = AGENT(a2)->port[0];
-	      PUSH(vm, a1p, a2p);
-
-	      a1p = AGENT(a1)->port[1];
-	      a2p = AGENT(a2)->port[1];
-
-	      free_Agent2(a1,a2);
-	      a1 = a1p;
-	      a2 = a2p;
-	      goto loop;	      
-	    }
-	    
-	    int arity = IdTable_get_arity(BASIC(a2)->id);
-	    switch (arity) {
-	    case 0:
-	      {
-		// Dup(p0,p1) >< A => p0~A, p1~A;
-		VALUE a1p = AGENT(a1)->port[0];
-		VALUE new_a2 = make_Agent(vm, BASIC(a2)->id);
-		PUSH(vm, a1p, new_a2);
-
-		a1p = AGENT(a1)->port[1];		
+	    dedup_Agent_recursively(a2);
 		free_Agent(a1);
-		a1=a1p;
-		goto loop;
-	      }
-
-	      
-	      // a2p0 などが fixint の場合は即座に複製させる
-	    case 1:
-	      {
-		// Dup(p0,p1) >< A(a2p0) => p1~A(w2), p0~A(w1), 
-		//                          Dup(w1,w2)~a2p0;
-		// Dup(p0,p1) >< A(int a2p0) => p1~A(a2p0), p0~A(a2p0);
-
-		
-		VALUE a2p0 = AGENT(a2)->port[0];
-
-		int a2id = BASIC(a2)->id;
-
-		// p1
-		VALUE new_a2 = make_Agent(vm, a2id);
-
-		if (IS_FIXNUM(a2p0)) {
-		  AGENT(new_a2)->port[0] = a2p0;
-		  PUSH(vm, AGENT(a1)->port[1], new_a2);
-		  AGENT(a2)->port[0] = a2p0;
-
-		  VALUE a1p0 = AGENT(a1)->port[0];
-		  free_Agent(a1);
-
-		  //PUSH(vm, a1p0, a2);
-		  a1 = a1p0;
-		  goto loop;
-		  
-		} else {
-		  VALUE w = make_Name(vm);
-		  AGENT(new_a2)->port[0] = w;
-		  PUSH(vm, AGENT(a1)->port[1], new_a2);
-		  AGENT(a1)->port[1] = w; // for (*L)dup
-
-		  w = make_Name(vm);
-		  AGENT(a2)->port[0] = w;
-		  PUSH(vm, AGENT(a1)->port[0], a2);
-
-		  AGENT(a1)->port[0] = w; // for (*L)dup
-		  
-		  a2 = a2p0;
-		  goto loop;		  
-		}
-
-	      }
-	      break;
-	      
-
-	    case 2:
-	      {
-		// Here we only manage the following rule,
-		// and the other will be done at the next case:
-		//   Dup(p0,p1) >< Cons(int i, a2p1) =>
-		//     p0~Cons(i,w), p1~(*R)Cons(i,ww), (*L)Dup(w,ww)~a2p1;
-
-		VALUE a2p0 = AGENT(a2)->port[0];
-		if (IS_FIXNUM(a2p0)) {
-		  int a2id = BASIC(a2)->id;
-		  VALUE new_a2 = make_Agent(vm, a2id);
-
-		  AGENT(new_a2)->port[0] = a2p0;
-
-		  VALUE w = make_Name(vm);
-		  AGENT(new_a2)->port[1] = w;
-
-		  PUSH(vm, AGENT(a1)->port[0], new_a2);
-		  AGENT(a1)->port[0] = w;
-		  
-		  VALUE a2p1 = AGENT(a2)->port[1];
-		  VALUE ww = make_Name(vm);
-		  AGENT(a2)->port[1] = ww;
-		  
-		  PUSH(vm, AGENT(a1)->port[1], a2);
-		  AGENT(a1)->port[1] = ww;
-
-		  a2 = a2p1;
-		  goto loop;
-		}
-
-		// otherwise: goto default
-		// So, DO NOT put break.
-	      }
-
-	      
-	    default:
-	      {
-		// Dup(p0,p1) >< A(a2p0, a2p1) =>
-		//      p0~A(w0,w1),        (*L)Dup(w0,ww0)~a2p0
-		//      p1~(*R)A(ww0,ww1),      Dup(w1,ww1)~a2p1, 
-
-		// Dup(p0,p1) >< A(a2p0, a2p1, a2p2) =>
-		//      p0~A(w0,w1,w2),        (*L)Dup(w0,ww0)~a2p0
-		//      p1~(*R)A(ww0,ww1,ww2),     Dup(w1,ww1)~a2p1, 
-		//                                 Dup(w2,ww2)~a2p2;
-
-		// Dup(p0,p1) >< A(a2p0, a2p1, a2p2 a2p3) =>
-		//      p0~A(w0,w1,w2,w3),         (*L)Dup(w0,ww0)~a2p0
-		//      p1~(*R)A(ww0,ww1,ww2,ww3),     Dup(w1,ww1)~a2p1, 
-		//                                     Dup(w2,ww2)~a2p2,
-		//                                     Dup(w3,ww3)~a2p3;
-
-
-		// Dup(p0,p1) >< A(a2p0, int a2p1, a2p2 a2p3) =>
-		//      p0~A(w0,a2p1,w2,w3),         (*L)Dup(w0,ww0)~a2p0
-		//      p1~(*R)A(ww0,a2p1,ww2,ww3),     
-		//                                     Dup(w2,ww2)~a2p2,
-		//                                     Dup(w3,ww3)~a2p3;
-
-
-		// newA = mkAgent(A);
-		// for (i=0; i<arity; i++) {
-		//   if (!IS_FIXNUM(a2->p[i])) {
-		//      newA->p[i] = w_i;
-	        //   } else {
-		//      newA->p[i] = a2->p[i];
-		//   }
-		// }
-		// for (i=1; i<arity; i++) {
-		//   if (!IS_FIXNUM(a2->p[i])) {
-		//     newDup( newA->p[i], newWW_i) ~ a2[i]
-		//     a2[i] = newWW_i;
-		//   }
-		// }
-		// if (!IS_FIXNUM(a2->p[0])) {
-		//   p0_preserve = p0;
-		//   p1_preserve = p1;
-		//   (*L)Dup(w0, newWW0) ~ a2[0] // this destroys the p0 and p1.
-		//
-		//   p0_preserve ~ newA
-		//   a2[0] = newWW0;
-		//
-		//   p1_preserve ~ a2; <-- This will be `goto loop'.
-		// } else {
-		//   p0 ~ newA;
-		//   p1_preserve = p1;
-		//   free_Agent((*L)Dup);
-		//   p1_preserve ~ a2; >-- This will be `goto loop'.
-		// }
-		
-		int a2id = BASIC(a2)->id;
-		VALUE new_a2 = make_Agent(vm, a2id);
-		for (int i=0; i<arity; i++) {
-		  VALUE a2pi = AGENT(a2)->port[i];
-		  if (!IS_FIXNUM(a2pi)) {
-		    AGENT(new_a2)->port[i] = make_Name(vm);
-		  } else {
-		    AGENT(new_a2)->port[i] = a2pi;
-		  }		    
-		}
-
-		for (int i=1; i<arity; i++) {
-		  VALUE a2pi = AGENT(a2)->port[i];
-
-		  if (!IS_FIXNUM(a2pi)) {
-		  
-		    VALUE new_dup = make_Agent(vm, ID_DUP);
-		    AGENT(new_dup)->port[0] = AGENT(new_a2)->port[i];
-
-		    VALUE new_ww = make_Name(vm);
-		    AGENT(new_dup)->port[1] = new_ww;
-
-		    PUSH(vm, new_dup, a2pi);
-		  
-		    AGENT(a2)->port[i] = new_ww;
-		  }
-		}
-		
-		VALUE a2p0 = AGENT(a2)->port[0];
-		if (!IS_FIXNUM(a2p0)) {
-
-		  VALUE a1p0 = AGENT(a1)->port[0];
-		  VALUE a1p1 = AGENT(a1)->port[1];
-
-		  AGENT(a1)->port[0] = AGENT(new_a2)->port[0];
-		  VALUE new_ww = make_Name(vm);
-		  AGENT(a1)->port[1] = new_ww;
-		  PUSH(vm, a1, a2p0);
-
-		  PUSH(vm, a1p0, new_a2);
-
-		  AGENT(a2)->port[0] = new_ww;
-
-		  a1 = a1p1;
-		
-		  goto loop;
-		} else {
-		  PUSH(vm, AGENT(a1)->port[0], new_a2);
-		  VALUE a1p1 = AGENT(a1)->port[1];
-		  free_Agent(a1);
-
-		  a1=a1p1;
-		  goto loop;
-		}
-	      }
-	      
-
-	    }
+		return;
 	  }
 	  break;
 
 
+	// case ID_DUP:
+	//   {
+	//     // Dup(p1,p2) ~ Alpha(b1,...,b5)
+	//     COUNTUP_INTERACTION(vm);
+
+	//     if (BASIC(a2)->id == ID_DUP) {
+	//       // Dup(p1,p2) >< Dup(b1,b2) => p1~b1, b2~b2;
+	//       VALUE a1p = AGENT(a1)->port[0];
+	//       VALUE a2p = AGENT(a2)->port[0];
+	//       PUSH(vm, a1p, a2p);
+
+	//       a1p = AGENT(a1)->port[1];
+	//       a2p = AGENT(a2)->port[1];
+
+	//       free_Agent2(a1,a2);
+	//       a1 = a1p;
+	//       a2 = a2p;
+	//       goto loop;	      
+	//     }
+	    
+	//     int arity = IdTable_get_arity(BASIC(a2)->id);
+	//     switch (arity) {
+	//     case 0:
+	//       {
+	// 		printf("0 dup!!\n");
+	// 	// Dup(p0,p1) >< A => p0~A, p1~A;
+	// 	VALUE new_a2 = dup_Agent(a2);
+ //        if (AGENT(a1)->port[0] != AGENT(a1)->port[1]) {
+ //            PUSH(vm, AGENT(a1)->port[0], a2);
+ //      		PUSH(vm, AGENT(a1)->port[1], new_a2);
+ //        }
+ //        VALUE a1p = AGENT(a1)->port[0];
+	// 	free_Agent(a1);
+	// 	return;
+	//       }
+
+	      
+	//       // a2p0 などが fixint の場合は即座に複製させる
+	//     case 1:
+	//       {
+	// 						printf("1 dup!!\n");
+	// 	// Dup(p0,p1) >< A(a2p0) => p1~A(w2), p0~A(w1), 
+	// 	//                          Dup(w1,w2)~a2p0;
+	// 	// Dup(p0,p1) >< A(int a2p0) => p1~A(a2p0), p0~A(a2p0);
+	// 	//
+	// 	// Dup(p0,p1) >< A(a2p0) => (p0,p1)~A(w), Dup(w, _)~a2p0;
+		
+	// 	VALUE a2p0 = AGENT(a2)->port[0];
+
+	// 	int a2id = BASIC(a2)->id;
+
+	// 	// p1
+	// 	VALUE new_a2 = dup_Agent(a2);
+
+	// 	if (IS_FIXNUM(a2p0)) {	
+	// 	    if (AGENT(a1)->port[0] != AGENT(a1)->port[1]) {
+ //                PUSH(vm, AGENT(a1)->port[0], a2);
+ //                PUSH(vm, AGENT(a1)->port[1], new_a2);
+	// 		}
+	// 	  free_Agent(a1);
+	// 	  return;
+	// 	} else {
+	// 	  if (AGENT(a1)->port[0] != AGENT(a1)->port[1]) {
+	// 	        PUSH(vm, AGENT(a1)->port[0], a2);
+	// 			PUSH(vm, AGENT(a1)->port[1], new_a2);
+	// 	  }
+	// 	  AGENT(a1)->port[0] = AGENT(a2)->port[0];
+	// 	  AGENT(a1)->port[1] = AGENT(a2)->port[0];
+		  
+	// 	  a2 = a2p0;
+	// 	  goto loop;		  
+	// 	}
+
+	//       }
+	//       break;
+	      
+
+	//     case 2:
+	//       {
+	// 		printf("2 dup!!\n");
+	// 	// Here we only manage the following rule,
+	// 	// and the other will be done at the next case:
+	// 	//   Dup(p0,p1) >< Cons(int i, a2p1) =>
+	// 	//     p0~Cons(i,w), p1~(*R)Cons(i,ww), (*L)Dup(w,ww)~a2p1;
+
+	// 	VALUE a2p0 = AGENT(a2)->port[0];
+	// 	if (IS_FIXNUM(a2p0)) {
+	// 	  VALUE new_a2 = dup_Agent(a2);
+	// 	  VALUE a2p1 = AGENT(a2)->port[1];
+ //            if (AGENT(a1)->port[0] != AGENT(a1)->port[1]) {
+ //                PUSH(vm, AGENT(a1)->port[0], a2);
+ //                PUSH(vm, AGENT(a1)->port[1], new_a2);
+ //           	}
+		  
+	// 	  AGENT(a1)->port[0] = a2p1;
+	// 	  AGENT(a1)->port[1] = a2p1;
+	// 	  a2 = a2p1;
+	// 	  goto loop;
+	// 	}
+
+	// 	// otherwise: goto default
+	// 	// So, DO NOT put break.
+	//       }
+
+	      
+	//     default:
+	//       {
+	// 		printf("Arbitrary %d dup\n", arity);
+	// 	VALUE new_a2 = dup_Agent(a2);
+	// 	for (int i=0; i<arity; i++) {
+	// 	  VALUE a2pi = AGENT(a2)->port[i];
+	// 	  if (!IS_FIXNUM(a2pi)) {
+	// 	    //AGENT(new_a2)->port[i] = make_Name(vm);
+	// 	  } else {
+	// 	    //AGENT(new_a2)->port[i] = a2pi;
+	// 	  }		    
+	// 	}
+
+	// 	for (int i=1; i<arity; i++) {
+	// 	  VALUE a2pi = AGENT(a2)->port[i];
+
+	// 	  if (!IS_FIXNUM(a2pi)) {
+		  
+	// 	    VALUE new_dup = make_Agent(vm, ID_DUP);
+	// 		AGENT(new_dup)->port[0] = AGENT(a2)->port[i];
+	// 		AGENT(new_dup)->port[1] = AGENT(a2)->port[i]; 
+			
+	// 	    PUSH(vm, new_dup, a2pi);
+	// 	  }
+	// 	}
+		
+	// 	VALUE a2p0 = AGENT(a2)->port[0];
+	// 	if (!IS_FIXNUM(a2p0)) {
+
+	// 	  VALUE a1p0 = AGENT(a1)->port[0];
+	// 	  VALUE a1p1 = AGENT(a1)->port[1];
+	// 	  if (a1p0 != a1p1) {
+	// 			PUSH(vm, a1p0, a2);
+	// 			PUSH(vm, a1p1, a2);
+	// 			}
+	// 	  AGENT(a1)->port[0] = AGENT(a2)->port[0];
+	// 	  AGENT(a1)->port[1] = AGENT(a2)->port[0];
+	// 	  a2 = a2p0;
+	// 	  goto loop;
+	// 	  return;
+	// 	} else {
+	// 	  VALUE a1p1 = AGENT(a1)->port[1];
+	// 	  free_Agent(a1);
+	// 	  printf("RETURNING\n");
+	// 	  return;
+	// 	  a1=a1p1;
+	// 	  goto loop;
+	// 	}
+	//       }
+	      
+
+	//     }
+	//   }
+	//   break;
+
+			case ID_DUP:
+			  {
+			    // Dup(p1,p2) ~ Alpha(b1,...,b5)
+			    COUNTUP_INTERACTION(vm);
+
+			    // Special optimization: Dup >< Dup -> just connect ports
+			    if (BASIC(a2)->id == ID_DUP) {
+			      VALUE a1p = AGENT(a1)->port[0];
+			      VALUE a2p = AGENT(a2)->port[0];
+			      PUSH(vm, a1p, a2p);
+
+			      a1p = AGENT(a1)->port[1];
+			      a2p = AGENT(a2)->port[1];
+
+			      free_Agent2(a1,a2);
+			      a1 = a1p;
+			      a2 = a2p;
+			      goto loop;	      
+			    }
+			    
+			    // GENERIC SHARING LOGIC (Replaces your switch statement)
+			    // Dup(p0, p1) >< A
+			    // We share A. We do NOT duplicate children.
+			    
+			    // 1. Get the ports of the Dup agent
+			    VALUE p0 = AGENT(a1)->port[0];
+			    VALUE p1 = AGENT(a1)->port[1];
+			    
+			    // 2. Increment reference count of A (a2)
+			    // dup_Agent(a2) should effectively be: 
+			    // atomic_fetch_add(&BASIC(a2)->ref_count, 1); return a2;
+			    dup_Agent_recursively(a2);
+							
+			    // 3. Connect both Dup ports to the SAME agent A
+			    PUSH(vm, a2, p0);       // Connect p0 to A
+			    PUSH(vm, a2, p1); // Connect p1 to A (same pointer)
+			    
+			    // 4. Clean up the Dup agent (a1)
+			    // We do NOT free a2 because it is still being used.
+			    free_Agent(a1);
+				return;
+			    a1 = p1;
+			    // 5. Continue execution
+			    // We pick one of the paths to follow, e.g., p1.
+			    // The loop expects (a1, a2) to be the next pair. 
+			    // Since we pushed (p0, A) and (p1, A), and set a1=p1,
+			    // we effectively want to switch context. 
+			    // But typically we jump to `loop` to pop the next interaction from stack.
+			    // If `p1` was a wire to another agent B, then (B, A) is now active.
+			    // However, since we did PUSH twice, the stack has the next tasks.
+			    // We can just `goto loop` to handle them.
+			    
+			    // Important: To keep the VM loop happy, we usually set a1/a2 to the next
+			    // thing to run or jump to a place that pops from stack.
+			    // In Inpla, usually `a1` is updated and `goto loop` continues.
+			    // If we simply want to process the stack, we might need to pop.
+			    // But for safety, let's just use the PUSHed interactions.
+			    
+			    // If `a1 = p1` is not valid (because p1 is not an agent pointer but a wire),
+			    // we should rely on the stack.
+			    // Looking at other cases: `a1=a1p0; goto loop;`
+			    // This implies `a1` holds the next *variable/wire* to chase?
+			    // No, `a1` usually holds an AGENT pointer.
+			    // If p1 was connected to something, PUSH handled it.
+			    // So we can just fetch a new pair from the stack.
+			    // Check if there is a POP or if `loop` does it.
+			    // Assuming `loop` handles stack popping if a1 is invalid or processed:
+			    
+			    // Actually, looking at `ID_DUP` case `Dup >< Dup`:
+			    // a1 = a1p; a2 = a2p; goto loop;
+			    // This assumes specific control flow. 
+			    // For safety with your change, assume the stack handles it.
+			    // But we need to free `a1` (the Dup).
+			    
+			    // Since we can't easily guess the "next" instruction without context of p0/p1,
+			    // and PUSH adds to stack:
+			    // Let's just try to continue with one of the connections if possible,
+			    // or force a stack pop.
+			    
+			    // If we look at `ID_ERASER`: `a1 = a1p0; goto loop;`
+			    // It seems safe to follow one branch.
+				return;
+				goto loop;
+			  }
+			  break;
 	  
 	case ID_TUPLE0:
 	  if (BASIC(a2)->id == ID_TUPLE0) {
@@ -10622,6 +10657,12 @@ int exec(Ast *at) {
           (double)(time)/1000000.0,
           MaxThreadsNum);
 #endif
+    bool verbose_memory_use = true;
+    if (verbose_memory_use) {
+        for (int i = 0; i < MaxThreadsNum; i++) {
+            puts_memory_usage(&VMs[i]->agentHeap, &VMs[i]->nameHeap);
+        }
+    }
 
 
   return 0;

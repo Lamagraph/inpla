@@ -39,7 +39,7 @@
 //
 #ifdef EXPANDABLE_HEAP
 //#define HOOP_SIZE (1 << 12)    // good for small heaps such as fib
-#define HOOP_SIZE (1 << 18)      // good for large heaps such as msort-80000
+#define HOOP_SIZE (1 << 20)      // good for large heaps such as msort-80000
 #endif
 
 
@@ -122,4 +122,3 @@
 
 
 #define COUNT_INTERACTION  // Count the amount of interactions.
-

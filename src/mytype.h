@@ -12,6 +12,7 @@ typedef uint64_t VALUE;
 
 typedef struct {
   IDTYPE id;
+  int rc;
 } Basic;
 
 
