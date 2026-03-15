@@ -8,88 +8,81 @@
 // 256     : NAME,
 // 257 ..  : GNAME
 
-
-#define ID_INT       0
-
+#define ID_INT 0
 
 // NOTE:
 // For a NEW BUILT-IN AGENT,
 // STORE the ARITY on IdTable in the function IdTable_init()!
-#define ID_TUPLE0    1
-#define ID_TUPLE1    2
-#define ID_TUPLE2    3
-#define ID_TUPLE3    4
-#define ID_TUPLE4    5
-#define ID_TUPLE5    6
-#define ID_TUPLE6    7
-#define ID_TUPLE7    8
-#define ID_TUPLE8    9
-#define ID_TUPLE9    10
-#define ID_TUPLE10   11
-#define GET_TUPLEID(arity) (ID_TUPLE0+arity)
+#define ID_TUPLE0 1
+#define ID_TUPLE1 2
+#define ID_TUPLE2 3
+#define ID_TUPLE3 4
+#define ID_TUPLE4 5
+#define ID_TUPLE5 6
+#define ID_TUPLE6 7
+#define ID_TUPLE7 8
+#define ID_TUPLE8 9
+#define ID_TUPLE9 10
+#define ID_TUPLE10 11
+#define GET_TUPLEID(arity) (ID_TUPLE0 + arity)
 #define IS_TUPLEID(id) ((id >= ID_TUPLE0) && (id <= ID_TUPLE5))
 #define GET_TUPLEARITY(id) (id - ID_TUPLE0)
 
-#define ID_NIL       12
-#define ID_CONS      13
+#define ID_NIL 12
+#define ID_CONS 13
 #define IS_LISTID(id) ((id == ID_NIL) && (id == ID_CONS))
 
-#define ID_WILDCARD  14
+#define ID_WILDCARD 14
 
-#define ID_INTAGENT 15   // This is an experimental dummy agent
-                         // to show the use effect of Int agent.
-#define START_ID_OF_BUILTIN_CONSTRUCTOR_AGENT 15 
-
+#define ID_INTAGENT                                                            \
+  15 // This is an experimental dummy agent
+     // to show the use effect of Int agent.
+#define START_ID_OF_BUILTIN_CONSTRUCTOR_AGENT 15
 
 #define START_ID_OF_BUILTIN_OP_AGENT 20
-#define ID_APPEND   20
-#define ID_ZIP      21
-#define ID_ZIPC     22
-#define ID_MERGER   23
+#define ID_APPEND 20
+#define ID_ZIP 21
+#define ID_ZIPC 22
+#define ID_MERGER 23
 #define ID_MERGER_P 24
-#define ID_ADD      25
-#define ID_ADD2     26
-#define ID_SUB      27
-#define ID_SUB2     28
-#define ID_MUL      29
-#define ID_MUL2     30
-#define ID_DIV      31
-#define ID_DIV2     32
-#define ID_MOD      33
-#define ID_MOD2     34
-#define ID_PERCENT  35
-#define ID_MAP      36
+#define ID_ADD 25
+#define ID_ADD2 26
+#define ID_SUB 27
+#define ID_SUB2 28
+#define ID_MUL 29
+#define ID_MUL2 30
+#define ID_DIV 31
+#define ID_DIV2 32
+#define ID_MOD 33
+#define ID_MOD2 34
+#define ID_PERCENT 35
+#define ID_MAP 36
 #define END_ID_OF_BUILTIN_OP_AGENT 36
 
 // ID_ERASER and ID_DUP were put as 254, 255
 // because these IDs are wanted larger like ID_DUP > any_agent.id
 
-
-#define START_ID_OF_USER_AGENT END_ID_OF_BUILTIN_OP_AGENT+1
+#define START_ID_OF_USER_AGENT END_ID_OF_BUILTIN_OP_AGENT + 1
 #define END_ID_OF_AGENT 255
 
-#define END_ID_OF_USER_AGENT END_ID_OF_AGENT-2
-#define ID_ERASER END_ID_OF_AGENT-1
+#define END_ID_OF_USER_AGENT END_ID_OF_AGENT - 2
+#define ID_ERASER END_ID_OF_AGENT - 1
 #define ID_DUP END_ID_OF_AGENT
 
-
-#define NUM_AGENTS END_ID_OF_AGENT+1  // 256
+#define NUM_AGENTS END_ID_OF_AGENT + 1 // 256
 
 #define ID_NAME NUM_AGENTS // starts from 256 (NUM_AGENTS)
-#define START_ID_OF_GNAME  ID_NAME+1
-
+#define START_ID_OF_GNAME ID_NAME + 1
 
 #define NUM_GNAMES NUM_AGENTS // 256: the same as the size of AGENT
 
-
-//#define IS_AGENTID(a) (a <= ID_END_ID_OF_AGENT)
+// #define IS_AGENTID(a) (a <= ID_END_ID_OF_AGENT)
 #define IS_AGENTID(a) (!(a & 0x100)) // less than 256
-
 
 #define IS_NAMEID(a) ((a) >= ID_NAME)
 #define IS_GNAMEID(a) ((a) > ID_NAME)
 #define IS_LOCAL_NAMEID(a) ((a) == ID_NAME)
-//#define IS_BUILTIN_AGENTID(a) (a <= END_ID_OF_BUILTIN_AGENT)
+// #define IS_BUILTIN_AGENTID(a) (a <= END_ID_OF_BUILTIN_AGENT)
 #define SET_LOCAL_NAMEID(a) ((a) = ID_NAME)
 
 /**************************************
@@ -103,8 +96,7 @@ typedef struct {
   } aux;
 } IdTableT;
 
-
-#define IDTABLE_SIZE  (NUM_AGENTS + NUM_GNAMES) // AGENT + GNAME
+#define IDTABLE_SIZE (NUM_AGENTS + NUM_GNAMES) // AGENT + GNAME
 
 void IdTable_init();
 
@@ -117,11 +109,9 @@ int IdTable_get_arity(int id);
 void IdTable_set_heap(int id, VALUE heap);
 VALUE IdTable_get_heap(int id);
 
-
 int IdTable_new_agentid();
 int IdTable_new_gnameid();
 
 int IdTable_getid_builtin_funcAgent(Ast *agent);
-
 
 #endif

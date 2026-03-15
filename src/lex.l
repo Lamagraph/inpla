@@ -27,7 +27,7 @@ static int mygetinput(char *buf, int size) {
       line = linenoise(">>> ");
     } else {
       line = linenoise("... ");
-    }      
+    }
     if(!line)        return YY_NULL;
     if(strlen(line) > size-2){
       fprintf(stderr,"input line too long\n");
@@ -35,14 +35,14 @@ static int mygetinput(char *buf, int size) {
     }
     sprintf(buf, "%s\n", line);
     linenoiseHistoryAdd(line);
-    linenoiseHistorySave(".inpla.history.txt"); 
+    linenoiseHistorySave(".inpla.history.txt");
     free(line);
     return strlen(buf);
-}   
+}
 
 
 //#undef YY_INPUT
-//#define YYINPUT(buf, result, max_size) result = (c == EOF) ? YY_NULL : (buf[0] = c, 1); 
+//#define YYINPUT(buf, result, max_size) result = (c == EOF) ? YY_NULL : (buf[0] = c, 1);
 
 
 /************************************
@@ -185,5 +185,3 @@ int popFP() {
   }
   return 1;
 }
-
-
