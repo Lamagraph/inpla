@@ -2105,8 +2105,6 @@ VALUE dup_Name(VALUE na) {
 
 VALUE dup_Agent(VALUE ag) {
     AGENT(ag)->basic.rc++;
-    printf("\n");
-
     return ag;
 }
 
@@ -2139,7 +2137,35 @@ void dedup_Agent_recursively(VALUE ptr) {
     dedup_Agent_recursively(AGENT(ptr)->port[i]);
   }
 }
+// void dedup_Agent_recursively(VALUE ptr) {
+//   if (IS_FIXNUM(ptr)) return;
 
+//   if (IS_READYFORUSE(BASIC(ptr)->id)) return;
+
+//   BASIC(ptr)->rc--;
+
+//   if (BASIC(ptr)->rc > 0) return;
+
+//   int id = BASIC(ptr)->id;
+//   int arity = IdTable_get_arity(id);
+//   VALUE children[MAX_PORT];
+
+//   for (int i = 0; i < arity; i++) {
+//     children[i] = AGENT(ptr)->port[i];
+//   }
+
+//   BASIC(ptr)->rc = 1;
+
+//   if (IS_GNAMEID(id)) {
+//       free_Name(ptr);
+//   } else {
+//       free_Agent(ptr);
+//   }
+
+//   for (int i = 0; i < arity; i++) {
+//     dedup_Agent_recursively(children[i]);
+//   }
+// }
 //static inline
 VALUE make_Name(VirtualMachine * restrict vm) {
   VALUE ptr;
@@ -2153,6 +2179,60 @@ VALUE make_Name(VirtualMachine * restrict vm) {
 }
 
 
+VALUE copy_Agent(VirtualMachine * restrict vm, VALUE ag) {
+    if (IS_NAMEID(BASIC(ag)->id) || IS_FIXNUM(ag)) return ag;
+    int id = AGENT(ag)->basic.id;
+    VALUE copied = make_Agent(vm, id);
+    int arity = IdTable_get_arity(AGENT(ag)->basic.id);
+    for (int i = 0; i < arity; i++) {
+        AGENT(copied)->port[i] = AGENT(ag)->port[i];
+    }
+    free_Agent(ag);
+    return copied;
+}
+
+bool is_optimised_id(int id) {
+    return IS_NAMEID(id) || id == ID_DUP || id == ID_ERASER;
+}
+
+bool is_shared(VALUE ag) {
+    if (!IS_FIXNUM(ag) && BASIC(ag)->rc > 1) {
+        int id = BASIC(ag)->id;
+        return !is_optimised_id(id);
+    }
+    return false;
+}
+
+VALUE copy_agent_shallow(void *vm, VALUE original) {
+    VALUE copy = make_Agent(vm, BASIC(original)->id);
+
+    BASIC(copy)->rc = 1;
+
+    int arity = IdTable_get_arity(BASIC(original)->id);
+    for (int i = 0; i < arity; i++) {
+        VALUE child = AGENT(original)->port[i];
+        AGENT(copy)->port[i] = child;
+
+        if (!IS_FIXNUM(child)) {
+             if (!IS_NAMEID(BASIC(child)->id)) {
+                 dup_Agent(child);
+             } else {
+                 dup_Name(child);
+             }
+        } else {
+        }
+    }
+    return copy;
+}
+
+void copy_on_write(VirtualMachine * restrict vm, VALUE* a1, VALUE* a2) {
+    if (BASIC(a1)->rc > 1) {
+        *a1 = copy_Agent(vm, *a1);
+    }
+    if (BASIC(a2)->rc > 1) {
+        *a2 = copy_Agent(vm, *a2);
+    }
+}
 
 // ------------------------------------------------------
 //  Count for Interaction operation
@@ -8747,6 +8827,7 @@ loop_a2IsFixnum:
 	    COUNTUP_INTERACTION(vm);
 
 	    // Eps ~ (int n)
+		printf("ERASING A NUMBER %d\n", FIX2INT(a2));
 	    free_Agent(a1);
 	    return;
 	  }
@@ -8785,20 +8866,6 @@ loop_a2IsFixnum:
 	exit(-1);
 #endif
       }
-
-      /* JIT experimentation
-      if (BASIC(a1)->id == 28) {
-	vm->reg[VM_OFFSET_METAVAR_L(0)] = AGENT(a1)->port[0];
-
-	vm->reg[VM_OFFSET_ANNOTATE_L] = a1;
-	vm->reg[VM_OFFSET_ANNOTATE_R] = a2;
-
-	COUNTUP_INTERACTION(vm);
-	exec_code_fib(vm);
-
-	return;
-      }
-      */
 
       int i;
       unsigned long arity;
@@ -8894,17 +8961,23 @@ loop_a2IsAgent:
       puts("--------------------------------------");
       puts("");
 #endif
+    if (BASIC(a1)->rc > 1) {
+        if (BASIC(a2)->id != ID_DUP && BASIC(a2)->id != ID_ERASER)
+        {
+            VALUE new_a1 = copy_agent_shallow(vm, a1);
+            BASIC(a1)->rc--;
+            a1 = new_a1;
+        }
+    }
 
-
-      /*
-      if (BASIC(a1)->id < BASIC(a2)->id) {
-	VALUE tmp;
-	tmp=a1;
-	a1=a2;
-	a2=tmp;
-      }
-      */
-
+    if (BASIC(a2)->rc > 1) {
+        if (BASIC(a1)->id != ID_DUP && BASIC(a1)->id != ID_ERASER)
+         {
+            VALUE new_a2 = copy_agent_shallow(vm, a2);
+            BASIC(a2)->rc--;
+            a2 = new_a2;
+        }
+    }
       int result;
       void **code;
 
@@ -8923,13 +8996,16 @@ loop_agent_a1_a2_this_order:
 	  {
 	    // Eps ~ Alpha(a1,...,a5)
 	    COUNTUP_INTERACTION(vm);
-
-	    dedup_Agent_recursively(a2);
+		if (AGENT(a2)->basic.rc > 1) {
+		    free_Agent(a2);
+		} else {
+	        dedup_Agent_recursively(a2);
+		}
+		printf("ERASING THE ERASER\n");
 		free_Agent(a1);
 		return;
 	  }
 	  break;
-
 
 	// case ID_DUP:
 	//   {
@@ -9095,7 +9171,9 @@ loop_agent_a1_a2_this_order:
 			  {
 			    // Dup(p1,p2) ~ Alpha(b1,...,b5)
 			    COUNTUP_INTERACTION(vm);
-
+				if (BASIC(a2)->id > ID_TUPLE0 && BASIC(a2)->id < ID_TUPLE5) {
+				    printf("DUP A TUPLE %d\n", GET_TUPLEARITY(BASIC(a2)->id));
+				}
 			    // Special optimization: Dup >< Dup -> just connect ports
 			    if (BASIC(a2)->id == ID_DUP) {
 			      VALUE a1p = AGENT(a1)->port[0];
@@ -9122,57 +9200,16 @@ loop_agent_a1_a2_this_order:
 			    // 2. Increment reference count of A (a2)
 			    // dup_Agent(a2) should effectively be:
 			    // atomic_fetch_add(&BASIC(a2)->ref_count, 1); return a2;
-			    dup_Agent_recursively(a2);
+			    dup_Agent(a2);
 
 			    // 3. Connect both Dup ports to the SAME agent A
-			    PUSH(vm, a2, p0);       // Connect p0 to A
-			    PUSH(vm, a2, p1); // Connect p1 to A (same pointer)
-
-			    // 4. Clean up the Dup agent (a1)
-			    // We do NOT free a2 because it is still being used.
+			    //PUSH(vm, a2, p0);       // Connect p0 to A
 			    free_Agent(a1);
-				return;
-			    a1 = p1;
-			    // 5. Continue execution
-			    // We pick one of the paths to follow, e.g., p1.
-			    // The loop expects (a1, a2) to be the next pair.
-			    // Since we pushed (p0, A) and (p1, A), and set a1=p1,
-			    // we effectively want to switch context.
-			    // But typically we jump to `loop` to pop the next interaction from stack.
-			    // If `p1` was a wire to another agent B, then (B, A) is now active.
-			    // However, since we did PUSH twice, the stack has the next tasks.
-			    // We can just `goto loop` to handle them.
 
-			    // Important: To keep the VM loop happy, we usually set a1/a2 to the next
-			    // thing to run or jump to a place that pops from stack.
-			    // In Inpla, usually `a1` is updated and `goto loop` continues.
-			    // If we simply want to process the stack, we might need to pop.
-			    // But for safety, let's just use the PUSHed interactions.
+			    PUSH(vm, p0, a2); // Connect p1 to A (same pointer)
 
-			    // If `a1 = p1` is not valid (because p1 is not an agent pointer but a wire),
-			    // we should rely on the stack.
-			    // Looking at other cases: `a1=a1p0; goto loop;`
-			    // This implies `a1` holds the next *variable/wire* to chase?
-			    // No, `a1` usually holds an AGENT pointer.
-			    // If p1 was connected to something, PUSH handled it.
-			    // So we can just fetch a new pair from the stack.
-			    // Check if there is a POP or if `loop` does it.
-			    // Assuming `loop` handles stack popping if a1 is invalid or processed:
+				a1 = p1;
 
-			    // Actually, looking at `ID_DUP` case `Dup >< Dup`:
-			    // a1 = a1p; a2 = a2p; goto loop;
-			    // This assumes specific control flow.
-			    // For safety with your change, assume the stack handles it.
-			    // But we need to free `a1` (the Dup).
-
-			    // Since we can't easily guess the "next" instruction without context of p0/p1,
-			    // and PUSH adds to stack:
-			    // Let's just try to continue with one of the connections if possible,
-			    // or force a stack pop.
-
-			    // If we look at `ID_ERASER`: `a1 = a1p0; goto loop;`
-			    // It seems safe to follow one branch.
-				return;
 				goto loop;
 			  }
 			  break;
@@ -9275,9 +9312,9 @@ loop_agent_a1_a2_this_order:
 	    // (x1,x2,x3) ~ (y1,y2,y3) --> x1~y1, x2~y2, x3~y3
 	    COUNTUP_INTERACTION(vm);
 
-	    PUSH(vm, AGENT(a1)->port[5], AGENT(a2)->port[4]);
+	    PUSH(vm, AGENT(a1)->port[5], AGENT(a2)->port[5]);
 	    PUSH(vm, AGENT(a1)->port[4], AGENT(a2)->port[4]);
-	    PUSH(vm, AGENT(a1)->port[3], AGENT(a2)->port[4]);
+	    PUSH(vm, AGENT(a1)->port[3], AGENT(a2)->port[3]);
 	    PUSH(vm, AGENT(a1)->port[2], AGENT(a2)->port[2]);
 	    PUSH(vm, AGENT(a1)->port[1], AGENT(a2)->port[1]);
 
@@ -9297,10 +9334,10 @@ loop_agent_a1_a2_this_order:
 	    // (x1,x2,x3) ~ (y1,y2,y3) --> x1~y1, x2~y2, x3~y3
 	    COUNTUP_INTERACTION(vm);
 
-	    PUSH(vm, AGENT(a1)->port[6], AGENT(a2)->port[4]);
-	    PUSH(vm, AGENT(a1)->port[5], AGENT(a2)->port[4]);
+	    PUSH(vm, AGENT(a1)->port[6], AGENT(a2)->port[6]);
+	    PUSH(vm, AGENT(a1)->port[5], AGENT(a2)->port[5]);
 	    PUSH(vm, AGENT(a1)->port[4], AGENT(a2)->port[4]);
-	    PUSH(vm, AGENT(a1)->port[3], AGENT(a2)->port[4]);
+	    PUSH(vm, AGENT(a1)->port[3], AGENT(a2)->port[3]);
 	    PUSH(vm, AGENT(a1)->port[2], AGENT(a2)->port[2]);
 	    PUSH(vm, AGENT(a1)->port[1], AGENT(a2)->port[1]);
 
@@ -9320,11 +9357,11 @@ loop_agent_a1_a2_this_order:
 	    // (x1,x2,x3) ~ (y1,y2,y3) --> x1~y1, x2~y2, x3~y3
 	    COUNTUP_INTERACTION(vm);
 
-	    PUSH(vm, AGENT(a1)->port[7], AGENT(a2)->port[4]);
-	    PUSH(vm, AGENT(a1)->port[6], AGENT(a2)->port[4]);
-	    PUSH(vm, AGENT(a1)->port[5], AGENT(a2)->port[4]);
+	    PUSH(vm, AGENT(a1)->port[7], AGENT(a2)->port[7]);
+	    PUSH(vm, AGENT(a1)->port[6], AGENT(a2)->port[6]);
+	    PUSH(vm, AGENT(a1)->port[5], AGENT(a2)->port[5]);
 	    PUSH(vm, AGENT(a1)->port[4], AGENT(a2)->port[4]);
-	    PUSH(vm, AGENT(a1)->port[3], AGENT(a2)->port[4]);
+	    PUSH(vm, AGENT(a1)->port[3], AGENT(a2)->port[3]);
 	    PUSH(vm, AGENT(a1)->port[2], AGENT(a2)->port[2]);
 	    PUSH(vm, AGENT(a1)->port[1], AGENT(a2)->port[1]);
 
@@ -9344,12 +9381,12 @@ loop_agent_a1_a2_this_order:
 	    // (x1,x2,x3) ~ (y1,y2,y3) --> x1~y1, x2~y2, x3~y3
 	    COUNTUP_INTERACTION(vm);
 
-	    PUSH(vm, AGENT(a1)->port[8], AGENT(a2)->port[4]);
-	    PUSH(vm, AGENT(a1)->port[7], AGENT(a2)->port[4]);
-	    PUSH(vm, AGENT(a1)->port[6], AGENT(a2)->port[4]);
-	    PUSH(vm, AGENT(a1)->port[5], AGENT(a2)->port[4]);
+	    PUSH(vm, AGENT(a1)->port[8], AGENT(a2)->port[8]);
+	    PUSH(vm, AGENT(a1)->port[7], AGENT(a2)->port[7]);
+	    PUSH(vm, AGENT(a1)->port[6], AGENT(a2)->port[6]);
+	    PUSH(vm, AGENT(a1)->port[5], AGENT(a2)->port[5]);
 	    PUSH(vm, AGENT(a1)->port[4], AGENT(a2)->port[4]);
-	    PUSH(vm, AGENT(a1)->port[3], AGENT(a2)->port[4]);
+	    PUSH(vm, AGENT(a1)->port[3], AGENT(a2)->port[3]);
 	    PUSH(vm, AGENT(a1)->port[2], AGENT(a2)->port[2]);
 	    PUSH(vm, AGENT(a1)->port[1], AGENT(a2)->port[1]);
 
@@ -9369,13 +9406,13 @@ loop_agent_a1_a2_this_order:
 	    // (x1,x2,x3) ~ (y1,y2,y3) --> x1~y1, x2~y2, x3~y3
 	    COUNTUP_INTERACTION(vm);
 
-	    PUSH(vm, AGENT(a1)->port[9], AGENT(a2)->port[4]);
-	    PUSH(vm, AGENT(a1)->port[8], AGENT(a2)->port[4]);
-	    PUSH(vm, AGENT(a1)->port[7], AGENT(a2)->port[4]);
-	    PUSH(vm, AGENT(a1)->port[6], AGENT(a2)->port[4]);
-	    PUSH(vm, AGENT(a1)->port[5], AGENT(a2)->port[4]);
+	    PUSH(vm, AGENT(a1)->port[9], AGENT(a2)->port[9]);
+	    PUSH(vm, AGENT(a1)->port[8], AGENT(a2)->port[8]);
+	    PUSH(vm, AGENT(a1)->port[7], AGENT(a2)->port[7]);
+	    PUSH(vm, AGENT(a1)->port[6], AGENT(a2)->port[6]);
+	    PUSH(vm, AGENT(a1)->port[5], AGENT(a2)->port[5]);
 	    PUSH(vm, AGENT(a1)->port[4], AGENT(a2)->port[4]);
-	    PUSH(vm, AGENT(a1)->port[3], AGENT(a2)->port[4]);
+	    PUSH(vm, AGENT(a1)->port[3], AGENT(a2)->port[3]);
 	    PUSH(vm, AGENT(a1)->port[2], AGENT(a2)->port[2]);
 	    PUSH(vm, AGENT(a1)->port[1], AGENT(a2)->port[1]);
 
@@ -10657,13 +10694,6 @@ int exec(Ast *at) {
           (double)(time)/1000000.0,
           MaxThreadsNum);
 #endif
-    bool verbose_memory_use = true;
-    if (verbose_memory_use) {
-        for (int i = 0; i < MaxThreadsNum; i++) {
-            puts_memory_usage(&VMs[i]->agentHeap, &VMs[i]->nameHeap);
-        }
-    }
-
 
   return 0;
 }

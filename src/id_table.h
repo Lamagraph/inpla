@@ -25,7 +25,7 @@
 #define ID_TUPLE9 10
 #define ID_TUPLE10 11
 #define GET_TUPLEID(arity) (ID_TUPLE0 + arity)
-#define IS_TUPLEID(id) ((id >= ID_TUPLE0) && (id <= ID_TUPLE5))
+#define IS_TUPLEID(id) ((id >= ID_TUPLE0) && (id <= ID_TUPLE10))
 #define GET_TUPLEARITY(id) (id - ID_TUPLE0)
 
 #define ID_NIL 12

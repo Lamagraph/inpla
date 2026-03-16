@@ -86,7 +86,7 @@
 // ------------------------------------------------
 // For developers
 // ------------------------------------------------
-// #define DEBUG             // Show the computation process.
+// #define DEBUG // Show the computation process.
 // #define DEBUG_MKRULE      // Show compiled codes for rules.
 // #define DEBUG_NETS        // Show compiled codes for nets.
 // #define DEBUG_EXPR_COMPILE_ERROR // Show AST of an expression
