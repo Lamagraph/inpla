@@ -17,7 +17,7 @@
 // MAX_AST_HEAP defines the heap size of AST.
 // Increase this value if the parser runs out of heap space.
 // Default: 100000
-#define MAX_AST_HEAP 100000
+#define MAX_AST_HEAP 1024 * 1024 * 512
 
 
 
@@ -46,7 +46,7 @@
 // Increase this value if the compiler runs out of heap space.
 // Default: 1024.
 //#define MAX_IMCODE_SEQUENCE 1024
-#define MAX_IMCODE_SEQUENCE 2048
+#define MAX_IMCODE_SEQUENCE 1024 * 1024 * 256
 
 
 
@@ -135,7 +135,7 @@
 //   - Rewrites specific instruction combinations (Peephole optimisation).
 //     For example, `SUBI src $1 dest' becomes `DEC src dest'.
 //
-#define OPTIMISE_IMCODE    
+// #define OPTIMISE_IMCODE    
   
 
 #ifdef OPTIMISE_IMCODE

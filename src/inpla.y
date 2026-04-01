@@ -1921,7 +1921,7 @@ void puts_eqlist(EQList *at) {
 // ------------------------------------------------------------
 //  VIRTUAL MACHINE 
 // ------------------------------------------------------------
-#define VM_REG_SIZE 256
+#define VM_REG_SIZE 1024 * 1024 * 8
 
 // reg0 is used to store comparison results
 // so, others have to be used from reg1
@@ -2595,11 +2595,15 @@ void CodeAddr_init(void) {
 struct IMCode_tag {
   int opcode;
   long operand1, operand2, operand3, operand4, operand5, operand6, operand7;
-} IMCode[MAX_IMCODE_SEQUENCE];
+};
+
+struct IMCode_tag* IMCode;
+
 
 int IMCode_n;
 
 void IMCode_init(void) {
+  IMCode = malloc(MAX_IMCODE_SEQUENCE * sizeof(struct IMCode_tag));
   IMCode_n = 0;
 }
 
@@ -6927,7 +6931,7 @@ int Compile_rule_mainbody_on_ast(Ast *mainbody) {
 typedef struct RuleList {
   int sym;
   int available;
-  void* code[MAX_VMCODE_SEQUENCE];
+  void** code;
   struct RuleList *next;
 } RuleList;
 
@@ -6935,6 +6939,11 @@ RuleList *RuleList_new(void) {
   RuleList *alist;
   alist = malloc(sizeof(RuleList));
   if (alist == NULL) {
+    printf("Malloc error\n");
+    exit(-1);
+  }
+  alist->code = malloc(MAX_VMCODE_SEQUENCE * sizeof(void*));
+  if (alist->code == NULL) {
     printf("Malloc error\n");
     exit(-1);
   }
@@ -7327,7 +7336,7 @@ int make_rule_oneway(Ast *ast) {
   int idL, idR;
   Ast *ruleAgent_L, *ruleAgent_R, *rule_mainbody;
 
-  void* code[MAX_VMCODE_SEQUENCE];
+  void** code = malloc(MAX_VMCODE_SEQUENCE * sizeof(void*));
   int gencode_num=0;
 
 
