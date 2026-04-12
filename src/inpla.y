@@ -992,8 +992,8 @@ void myfree2(VALUE ptr, VALUE ptr2) {
    FLEX EXPANDABLE HEAP  
  ------------------------------------------------------------ */
 #elif defined(FLEX_EXPANDABLE_HEAP)
-static unsigned int Hoop_init_size = 12;             // 2^12 = 4096
-static unsigned int Hoop_increasing_magnitude = 3;   // 2^3  = 8
+static unsigned int Hoop_init_size = 1 << 20;           // 2^20 = 1024 * 1024
+static unsigned int Hoop_increasing_magnitude = 1;   // 1
 
 
 typedef struct HoopList_tag {
@@ -1028,7 +1028,6 @@ HoopList *HoopList_new_forName(unsigned int size) {
     exit(-1); // Exit safely with an error code    
   }
   
-  
   hp_list = (HoopList *)malloc(sizeof(HoopList));
   if (hp_list == NULL) {
     printf("[HoopList]Malloc error\n");
@@ -1036,7 +1035,9 @@ HoopList *HoopList_new_forName(unsigned int size) {
     exit(-1);
   }
 
-  
+#ifdef PUT_MEMORY_ALLOCATIONS
+  printf("Allocating %lu bytes for names\n", size * sizeof(Name));
+#endif
   // Name Heap
   hp_list->hoop = (VALUE *)malloc(size * sizeof(Name));
   if (hp_list->hoop == (VALUE *)NULL) {
@@ -1084,7 +1085,9 @@ HoopList *HoopList_new_forAgent(unsigned int size) {
     exit(-1);
   }
 
-  
+#ifdef PUT_MEMORY_ALLOCATIONS
+  printf("Allocating %lu bytes for agents\n", size * sizeof(Agent));
+#endif
   // Agent Heap  
   hp_list->hoop = (VALUE *)malloc(size * sizeof(Agent));
   if (hp_list->hoop == (VALUE *)NULL) {
@@ -1164,14 +1167,27 @@ unsigned long Heap_GetNum_Usage_forName(Heap *hp) {
 //static inline
 VALUE myalloc_Agent(Heap *hp) {
 
-  unsigned int idx;  
-  HoopList *hoop_list;
-  Agent *hoop;
+  unsigned int idx = hp->last_alloc_idx;  
+  HoopList *hoop_list = hp->last_alloc_list;
+  Agent *hoop = (Agent*)hoop_list->hoop;
   
-  idx = hp->last_alloc_idx;
-  hoop_list = hp->last_alloc_list;
-
+  // first hoop reusage
+  for (; idx < hoop_list->size; ++idx) {
+      if (IS_READYFORUSE(hoop[idx].basic.id)) {
+          hp->last_alloc_idx = idx;
+          return (VALUE)&(hoop[idx]);
+      }
+  }
+  // find free spots from the start
+  for (idx = 0; idx < hp->last_alloc_idx; ++idx) {
+      if (IS_READYFORUSE(hoop[idx].basic.id)) {
+          hp->last_alloc_idx = idx;
+          return (VALUE)&(hoop[idx]);
+      }
+  }
   
+  // switches the hoop
+  idx = hoop_list->size;
   while (1) {
     hoop = (Agent *)(hoop_list->hoop);
   
@@ -1274,13 +1290,27 @@ VALUE myalloc_Agent(Heap *hp) {
 //static inline
 VALUE myalloc_Name(Heap *hp) {
 
-  unsigned int idx;
-  HoopList *hoop_list;
-  Name *hoop;
+  unsigned int idx = hp->last_alloc_idx;
+  HoopList *hoop_list = hp->last_alloc_list;
+  Name *hoop = (Name*)hoop_list->hoop;
 
-  idx = hp->last_alloc_idx;
-  hoop_list = hp->last_alloc_list;
-    
+  // first hoop reusage
+  for (; idx < hoop_list->size; ++idx) {
+      if (IS_READYFORUSE(hoop[idx].basic.id)) {
+          hp->last_alloc_idx = idx;
+          return (VALUE)&(hoop[idx]);
+      }
+  }
+  // find free spots from the start
+  for (idx = 0; idx < hp->last_alloc_idx; ++idx) {
+      if (IS_READYFORUSE(hoop[idx].basic.id)) {
+          hp->last_alloc_idx = idx;
+          return (VALUE)&(hoop[idx]);
+      }
+  }
+  
+  // switches the hoop
+  idx = hoop_list->size;
   while (1) {
     hoop = (Name *)(hoop_list->hoop);
     int size = hoop_list->size;
@@ -2025,8 +2055,7 @@ void VM_Buffer_Init(VirtualMachine * restrict vm) {
   //        idx=0
   
   vm->agentHeap.last_alloc_list = HoopList_new_forAgent(Hoop_init_size);
-  vm->agentHeap.last_alloc_list->next = HoopList_new_forAgent(Hoop_init_size);
-  vm->agentHeap.last_alloc_list->next->next = vm->agentHeap.last_alloc_list;
+  vm->agentHeap.last_alloc_list->next = vm->agentHeap.last_alloc_list;
   vm->agentHeap.last_alloc_idx = 0;
   
 
@@ -2038,8 +2067,7 @@ void VM_Buffer_Init(VirtualMachine * restrict vm) {
   */
   
   vm->nameHeap.last_alloc_list = HoopList_new_forName(Hoop_init_size);
-  vm->nameHeap.last_alloc_list->next = HoopList_new_forName(Hoop_init_size);
-  vm->nameHeap.last_alloc_list->next->next = vm->nameHeap.last_alloc_list;
+  vm->nameHeap.last_alloc_list->next = vm->nameHeap.last_alloc_list;
   vm->nameHeap.last_alloc_idx = 0;
   
   // Register
@@ -10034,12 +10062,10 @@ int main(int argc, char *argv[])
 #ifdef EXPANDABLE_HEAP
 #elif defined(FLEX_EXPANDABLE_HEAP)
 	printf(" -Xms <num>       Set initial heap size to 2^<num>        (Defalut: %2u (=%4u))\n",
-	       Hoop_init_size, 1 << Hoop_init_size);
+	       Hoop_init_size,  Hoop_init_size);
 	printf(" -Xmt <num>       Set multiple heap increment to 2^<num>  (Defalut: %2u (=%4u))\n",
-	       Hoop_increasing_magnitude, 1 << Hoop_increasing_magnitude);
-	printf("                    0: the same (=2^0) size heap is inserted when it runs up.\n");
-	printf("                    1: the heap size is twice (=2^1).\n");	
-	printf("                    2: the size is four times (=2^2).\n");	
+	       Hoop_increasing_magnitude, Hoop_increasing_magnitude);
+	printf(" Note: sizeof(Agent) = %lu, sizeof(Name) = %lu\n", sizeof(Agent), sizeof(Name));
 #else
 	//v0.5.6
 	printf(" -m <num>         Set size of heaps                       (Defalut: %10u)\n", heap_size);
@@ -10388,8 +10414,8 @@ int main(int argc, char *argv[])
 
 #ifdef EXPANDABLE_HEAP
 #elif defined(FLEX_EXPANDABLE_HEAP)
-  Hoop_init_size = 1 << Hoop_init_size;
-  Hoop_increasing_magnitude = 1 << Hoop_increasing_magnitude;
+  Hoop_init_size = Hoop_init_size;
+  Hoop_increasing_magnitude = Hoop_increasing_magnitude;
   
 #else
   // v0.5.6

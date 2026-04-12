@@ -96,10 +96,10 @@
 // The maximum limitation for heap expansion.
 // This helps prevent segmentation faluts caused by out-of-memory.
 // Adjust this value according to your environment.
-#define MAX_HOOP_SIZE 50000000
+#define MAX_HOOP_SIZE 100000000
 #endif
 
-
+// #define PUT_MEMORY_ALOCATIONS
 
 
 // ------------------------------------------------
