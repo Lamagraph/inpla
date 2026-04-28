@@ -53,6 +53,7 @@ typedef struct EQList_tag {
 
 
 #define FIXNUM_FLAG 0x01
+// TODO: src/inpla.y:8627:38: runtime error: left shift of negative value -1
 #define INT2FIX(i) ((VALUE)(((long)(i) << 1) | FIXNUM_FLAG))
 #define FIX2INT(i) ((long)(i) >> 1)
 #define IS_FIXNUM(i) ((VALUE)(i) & FIXNUM_FLAG)

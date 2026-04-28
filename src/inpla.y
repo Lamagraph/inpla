@@ -18,6 +18,7 @@
 #include "mytype.h"
 #include "inpla.h"
 #include "heap.h"
+#include "cas_spinlock.h"
   
 #include "config.h"
 
@@ -65,10 +66,6 @@ static int MaxThreadsNum=1;
 #endif
 extern int pthread_setconcurrency(int concurrency); 
 static int SleepingThreadsNum=0;
-
-// for cas spinlock
-#include "cas_spinlock.h"
-
 #endif
 
  
@@ -1106,6 +1103,7 @@ unsigned int NumberOfMkAgent;
 #endif
 
 
+// FIX:(kogora): init heap in VM
 #ifdef EXPANDABLE_HEAP
 void VM_Buffer_Init(VirtualMachine * restrict vm) {
   // Agent Heap
@@ -1225,6 +1223,7 @@ void VM_EQStack_Push(VirtualMachine * restrict vm, VALUE l, VALUE r) {
   vm->eqStack[vm->nextPtr_eqStack].l = l;
   vm->eqStack[vm->nextPtr_eqStack].r = r;
 
+// FIX:(kogora): add normal DEBUG printer 
 #ifdef DEBUG
   //DEBUG
   printf(" PUSH:");
@@ -1251,6 +1250,7 @@ int VM_EQStack_Pop(VirtualMachine * restrict vm, VALUE *l, VALUE *r) {
 }
 
 
+// FIX:(kogora): vm init with heap
 #if defined(EXPANDABLE_HEAP) || defined(FLEX_EXPANDABLE_HEAP)
 void VM_Init(VirtualMachine * restrict vm, unsigned int eqStackSize) {
   VM_Buffer_Init(vm);
@@ -8698,6 +8698,7 @@ void *tpool_thread(void *arg) {
   return (void *)NULL;
 }
 
+// FIX:(kogora): init with different heaps
 #if defined(EXPANDABLE_HEAP) || defined(FLEX_EXPANDABLE_HEAP)
 void tpool_init(unsigned int eqstack_size) {
 #else
@@ -8740,6 +8741,7 @@ void tpool_init(unsigned int agentBufferSize, unsigned int eqstack_size) {
 
     //    usleep(i*2);
     
+// FIX:(kogora): vm init with different heaps
 #if defined(EXPANDABLE_HEAP) || defined(FLEX_EXPANDABLE_HEAP)
     VM_Init(VMs[i], eqstack_size);
 #else
@@ -8984,6 +8986,7 @@ int main(int argc, char *argv[])
   int max_EQStack=1<<8; // 512
   int retrieve_flag = 1; // 1: retrieve to interpreter even if error occurs
 
+// FIX:(kogora): what?
 #if !defined(EXPANDABLE_HEAP) && !defined(FLEX_EXPANDABLE_HEAP)
   // v0.5.6
   unsigned int heap_size=100000;
@@ -9030,6 +9033,7 @@ int main(int argc, char *argv[])
 	printf(" -f <filename>    Set input file name                     (Default:      STDIN)\n");
 	printf(" -d <Name>=<val>  Bind <val> to <Name>\n");
 
+// FIX:(kogora): help params
 #ifdef EXPANDABLE_HEAP
 #elif defined(FLEX_EXPANDABLE_HEAP)
 	printf(" -Xms <num>       Set initial heap size to 2^<num>        (Defalut: %2u (=%4u))\n",
@@ -9105,6 +9109,7 @@ int main(int argc, char *argv[])
 	}
 
 	  
+// FIX:(kogora): pars params
 #ifdef FLEX_EXPANDABLE_HEAP
 	else if (!(strcmp(argv[i], "-Xms"))) {
 	  i++;
@@ -9259,6 +9264,7 @@ int main(int argc, char *argv[])
 	break;
 
 
+// FIX:(kogora): params ?
 #if !defined(EXPANDABLE_HEAP) && !defined(FLEX_EXPANDABLE_HEAP)
       case 'm':
 	// v0.5.6
@@ -9385,6 +9391,7 @@ int main(int argc, char *argv[])
 
 
 
+// FIX:(kogora): init params
 #ifdef EXPANDABLE_HEAP
 #elif defined(FLEX_EXPANDABLE_HEAP)
   Hoop_init_size = 1 << Hoop_init_size;
@@ -9418,6 +9425,7 @@ int main(int argc, char *argv[])
     
     
     
+// FIX:(kogora): wtf
 #if defined(EXPANDABLE_HEAP) || defined(FLEX_EXPANDABLE_HEAP)
 
 #ifndef THREAD    
