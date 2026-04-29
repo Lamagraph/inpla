@@ -5,8 +5,14 @@ INCLUDE = -I ./src
 SRC_DIR = ./src
 OBJ_DIR = ./build
 TARGET  = inpla
-OBJS    = $(OBJ_DIR)/inpla.tab.c $(OBJ_DIR)/ast.o $(OBJ_DIR)/id_table.o $(OBJ_DIR)/name_table.o $(OBJ_DIR)/linenoise.o
-DEPS	= $(SRC_DIR)/config.h
+OBJS    = $(OBJ_DIR)/inpla.tab.c  \
+          $(OBJ_DIR)/ast.o        \
+          $(OBJ_DIR)/id_table.o   \
+          $(OBJ_DIR)/name_table.o \
+          $(OBJ_DIR)/linenoise.o  \
+          $(OBJ_DIR)/heap.o
+
+DEPS    = $(SRC_DIR)/config.h
 
 ifeq ($(DEBUG),thread)
 CFLAGS  = $(CFLAGS_COMMON) -O1 -g -fsanitize=thread
